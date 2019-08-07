@@ -2,8 +2,8 @@ package io.pivotal.service.dataTx.circuitBreakerDemoApp;
 
 import org.apache.geode.cache.DataPolicy;
 import org.apache.geode.cache.GemFireCache;
-import org.apache.geode.cache.Region;
 import org.apache.geode.cache.client.Pool;
+import org.apache.geode.cache.client.PoolFactory;
 import org.apache.geode.cache.client.PoolManager;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -14,8 +14,9 @@ import org.springframework.data.gemfire.config.annotation.ClientCacheApplication
 import org.springframework.data.gemfire.config.annotation.ClientCacheConfigurer;
 import org.springframework.data.gemfire.config.annotation.EnableLogging;
 import org.springframework.data.gemfire.config.annotation.EnableSecurity;
-import org.springframework.data.gemfire.mapping.annotation.ClientRegion;
 import org.springframework.data.gemfire.support.ConnectionEndpoint;
+import io.pivotal.services.dataTx.geode.client.GeodeSettings;
+
 
 @Configuration
 @ClientCacheApplication
@@ -41,20 +42,24 @@ public class AppConfig
     }
 
     @Bean("primaryPool")
-    public Pool primaryPool(@Value("${primaryLocatorHost}") String primaryLocatorHost,
-                            @Value("${primaryLocatorPort}") int primaryLocatorPort)
+    public Pool primaryPool(@Value("${spring.data.gemfire.locators}") String locators)
     {
-        return PoolManager.createFactory()
-                .addLocator(primaryLocatorHost,primaryLocatorPort).create("A");
-    }
+        PoolFactory factory = PoolManager.createFactory();
+        GeodeSettings.constructLocators(locators,factory);
+
+        return factory.create("A");
+    }//-------------------------------------------
 
     @Bean
-    public Pool secondaryPool(@Value("${secondaryLocatorHost}") String secondaryLocatorHost,
-                            @Value("${secondaryLocatorPort}") int secondaryLocatorPort)
+    public Pool secondaryPool(@Value("${secondaryLocators}") String secondaryLocators)
     {
-        return PoolManager.createFactory()
-                .addLocator(secondaryLocatorHost,secondaryLocatorPort).create("B");
-    }
+
+        PoolFactory factory = PoolManager.createFactory();
+
+        GeodeSettings.constructLocators(secondaryLocators,factory);
+
+        return factory.create("B");
+    }//------------------------------------------------------
     @Bean
     public CircuitBreaker circuitBreaker(GemFireCache cache,
                                          Pool primaryPool,

@@ -8,6 +8,7 @@ import org.apache.geode.cache.client.PoolManager;
 import org.apache.geode.cache.execute.Execution;
 import org.apache.geode.cache.execute.Function;
 import org.apache.geode.cache.execute.ResultCollector;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.Before; 
 import org.junit.After;
@@ -19,6 +20,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.test.annotation.IfProfileValue;
 import org.springframework.test.context.junit4.SpringRunner;
 
 import static org.mockito.Mockito.*;
@@ -34,6 +36,7 @@ import static org.junit.Assert.*;
 */
 @RunWith(SpringRunner.class)
 @SpringBootTest
+@IfProfileValue(name = "integration")
 public class CircuitBreakerTest { 
 
     @Value("${host}")
