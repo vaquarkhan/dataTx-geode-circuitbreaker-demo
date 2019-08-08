@@ -1,10 +1,8 @@
 package io.pivotal.service.dataTx.circuitBreakerDemoApp;
 
+import nyla.solutions.core.patterns.cache.CacheFarm;
 import org.apache.geode.cache.Region;
-import org.apache.geode.cache.client.NoAvailableLocatorsException;
-import org.apache.geode.cache.client.NoAvailableServersException;
-import org.apache.geode.cache.client.Pool;
-import org.apache.geode.cache.client.PoolManager;
+import org.apache.geode.cache.client.*;
 import org.apache.geode.cache.execute.*;
 import org.apache.geode.distributed.PoolCancelledException;
 import org.springframework.boot.ApplicationArguments;
@@ -72,7 +70,7 @@ public class CircuitBreaker
             return checkResultsOK(rc);
 
         }
-      catch(ConnectException | NoAvailableLocatorsException | NoAvailableServersException | PoolCancelledException e){
+      catch(ServerConnectivityException | ConnectException | PoolCancelledException e){
             e.printStackTrace();
             return false;
         }
@@ -129,9 +127,26 @@ public class CircuitBreaker
     {
         Runnable r = () -> {
             CircuitBreaker.context.close();
+            System.gc();
+
+            try{ Thread.sleep(4000); } catch(Exception e){}
+
+           // CircuitBreaker.context.refresh();
+
             String[] sourceArgs = {};
 
-            CircuitBreaker.context = SpringApplication.run(DemoApp.class,sourceArgs );
+            //CacheFarm.getCache().put("locator","MacBook-Pro-5.local[10334]");
+
+            try
+            {
+                CircuitBreaker.context = SpringApplication.run(DemoApp.class,sourceArgs );
+            }
+            catch(Exception e){
+
+                e.printStackTrace();
+                CircuitBreaker.context= SpringApplication.run(DemoApp.class,sourceArgs );
+            }
+
         };
 
         executor.submit(r);
@@ -160,7 +175,15 @@ public class CircuitBreaker
 
             String[] sourceArgs = {"--spring.data.gemfire.locators="+this.secondaryLocators};
 
-            CircuitBreaker.context = SpringApplication.run(DemoApp.class,sourceArgs );
+            try
+            {
+                CircuitBreaker.context = SpringApplication.run(DemoApp.class,sourceArgs );
+            }
+            catch(Exception e)
+            {
+                e.printStackTrace();
+                CircuitBreaker.context= SpringApplication.run(DemoApp.class,sourceArgs );
+            }
         };
 
         this.executor.submit(openAndSwitch);

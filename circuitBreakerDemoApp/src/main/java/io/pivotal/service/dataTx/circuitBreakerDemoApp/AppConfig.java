@@ -15,15 +15,23 @@ import org.springframework.data.gemfire.config.annotation.ClientCacheConfigurer;
 import org.springframework.data.gemfire.config.annotation.EnableLogging;
 import org.springframework.data.gemfire.config.annotation.EnableSecurity;
 import org.springframework.data.gemfire.support.ConnectionEndpoint;
-import io.pivotal.services.dataTx.geode.client.GeodeSettings;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+/**
+ *
+ * @author Greogyr Green
+ *
+ */
 @Configuration
 @ClientCacheApplication
 @EnableSecurity
 @EnableLogging
 public class AppConfig
 {
+    private static final Pattern regExpPattern = Pattern.compile("(.*)\\[(\\d*)\\].*");
+
     @Bean
     public ClientCacheConfigurer configurer(
             @Value("${spring.data.gemfire.locators}")
@@ -39,24 +47,55 @@ public class AppConfig
         };
 
         return configurerBean;
-    }
+    }//-------------------------------------------
 
     @Bean("primaryPool")
     public Pool primaryPool(@Value("${spring.data.gemfire.locators}") String locators)
     {
         PoolFactory factory = PoolManager.createFactory();
-        GeodeSettings.constructLocators(locators,factory);
+        constructConnection(locators,factory);
+
 
         return factory.create("A");
     }//-------------------------------------------
 
+    private static void constructConnection(String locators, PoolFactory factory)
+    {
+        if(locators == null || locators.length() == 0)
+            throw new IllegalArgumentException("locators is required");
+
+        String[] parsedLocators = locators.split(",");
+
+        String host,portText;
+        int port;
+        for (String hostPort : parsedLocators)
+        {
+            Matcher m = regExpPattern.matcher(hostPort);
+            if (!m.matches())
+            {
+                throw new IllegalStateException("Unexpected locator format. expected host[port], but got:" +  hostPort);
+            }
+
+            host = m.group(1);
+            portText = m.group(2);
+
+            try{
+                port = Integer.parseInt(portText);
+            }
+            catch(NumberFormatException e){
+                throw new IllegalStateException("Invalid port expected host[port], but got:" +  hostPort);
+            }
+
+            factory.addLocator(host,port );
+        }
+    }//------------------------------------------------
     @Bean
     public Pool secondaryPool(@Value("${secondaryLocators}") String secondaryLocators)
     {
 
         PoolFactory factory = PoolManager.createFactory();
 
-        GeodeSettings.constructLocators(secondaryLocators,factory);
+        constructConnection(secondaryLocators,factory);
 
         return factory.create("B");
     }//------------------------------------------------------
@@ -90,7 +129,6 @@ public class AppConfig
 
         testRegion.setCache(cache);
         testRegion.setDataPolicy(DataPolicy.EMPTY);
-        //testRegion.setName("test");
         return testRegion;
     }//-----------------------------------------
 
