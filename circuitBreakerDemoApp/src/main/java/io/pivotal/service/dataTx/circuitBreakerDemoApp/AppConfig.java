@@ -50,7 +50,7 @@ public class AppConfig
     }//-------------------------------------------
 
     @Bean("primaryPool")
-    public Pool primaryPool(@Value("${spring.data.gemfire.locators}") String locators)
+    public Pool primaryPool(GemFireCache cache, @Value("${primaryLocators}") String locators)
     {
         PoolFactory factory = PoolManager.createFactory();
         constructConnection(locators,factory);
@@ -90,7 +90,7 @@ public class AppConfig
         }
     }//------------------------------------------------
     @Bean
-    public Pool secondaryPool(@Value("${secondaryLocators}") String secondaryLocators)
+    public Pool secondaryPool(GemFireCache cache, @Value("${secondaryLocators}") String secondaryLocators)
     {
 
         PoolFactory factory = PoolManager.createFactory();
@@ -99,10 +99,12 @@ public class AppConfig
 
         return factory.create("B");
     }//------------------------------------------------------
+
     @Bean
     public CircuitBreaker circuitBreaker(GemFireCache cache,
                                          Pool primaryPool,
                                          Pool secondaryPool,
+                                         @Value("${primaryLocators}") String primaryLocators,
                                          @Value("${secondaryLocators}") String secondaryLocators,
                                          @Value("${sleepPeriodMs:2000}") long sleepPeriodMs,
                                          @Value("${spring.data.gemfire.locators}")
@@ -111,7 +113,8 @@ public class AppConfig
     {
         //Pool primaryPool, Pool backupPool, String secondaryLocators,
         //                          long sleepPeriodMs)
-        CircuitBreaker circuitBreaker = new CircuitBreaker(primaryPool.getName(),secondaryPool.getName(),secondaryLocators,sleepPeriodMs);
+        CircuitBreaker circuitBreaker = new CircuitBreaker(primaryPool.getName(),secondaryPool.getName(),
+                primaryLocators,secondaryLocators,sleepPeriodMs);
 
 
         if(locators.equals(secondaryLocators))

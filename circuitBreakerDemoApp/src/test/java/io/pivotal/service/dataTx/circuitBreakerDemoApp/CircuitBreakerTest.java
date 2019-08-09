@@ -23,18 +23,19 @@ import static org.junit.Assert.*;
 */
 @RunWith(SpringRunner.class)
 @SpringBootTest
-@IfProfileValue(name = "integration")
-public class CircuitBreakerTest { 
+//@IfProfileValue(name = "integration")
+public class CircuitBreakerTest {
 
-    @Value("${host}")
-    String host;
+    @Value("${primaryLocators}")
+    private String primaryLocators;
 
-    @Value("${primaryPort:10334}")
-    int primaryPort;
+    @Value("${secondaryLocators}")
+    private String secondaryLocators;
 
-    @Value("${secondaryPort}")
-    int secondaryPort;
 
+    /**
+     * Test the ability to open/close circuits
+     */
     @Test
     public void test_self_maintenance(){
         CircuitBreaker cb = createCircuitBreaker();
@@ -50,10 +51,12 @@ public class CircuitBreakerTest {
 
         Mockito.verify(applicationContext).close();
 
+    }//-------------------------------------------
 
-
-    }
-
+    /**
+     *
+     * @throws Exception when unknown exception occurs
+     */
     @Test
     public void test_is_primary_up ()
     throws Exception
@@ -67,7 +70,10 @@ public class CircuitBreakerTest {
 
     private CircuitBreaker createCircuitBreaker()
     {
-        return new CircuitBreaker("A","B",host+"["+20334+"]",2000);
+        return new CircuitBreaker("A","B",
+                primaryLocators,
+                secondaryLocators,
+                2000);
     }
 
     /**

@@ -17,11 +17,15 @@ import java.util.Collection;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+/**
+ * @author Gregory Green
+ */
 public class CircuitBreaker
 {
 
     private final String primaryPoolName;
     private final String secondaryPoolName;
+    private final String primaryLocators;
     private final String secondaryLocators;
     private final long sleepPeriodMs;
     private static final String FUNCTION_NAME ="CircuitBreakerStatusFunc";
@@ -31,9 +35,10 @@ public class CircuitBreaker
     private static ConfigurableApplicationContext context=null;
 
 
-    public CircuitBreaker(String primaryPool, String backupPool, String secondaryLocators,
+    public CircuitBreaker(String primaryPool, String backupPool, String primaryLocators, String secondaryLocators,
                           long sleepPeriodMs)
     {
+        this.primaryLocators = primaryLocators;
         this.secondaryLocators = secondaryLocators;
         this.primaryPoolName = primaryPool;
         this.secondaryPoolName = backupPool;
@@ -44,9 +49,10 @@ public class CircuitBreaker
     public boolean isPrimaryUp()
     throws Exception
     {
+
         return doCheck(PoolManager.find(this.primaryPoolName));
 
-    }
+    }//-------------------------------------------
 
     /**
      * Determine if the secondary cluster is up and running
@@ -56,7 +62,7 @@ public class CircuitBreaker
     throws Exception
     {
           return doCheck(PoolManager.find(this.secondaryPoolName));
-    }
+    }//-------------------------------------------
 
     private boolean doCheck(Pool secondaryPool)
     throws Exception
@@ -76,7 +82,7 @@ public class CircuitBreaker
         }
 
 
-    }
+    }//-------------------------------------------
 
     private boolean checkResultsOK(ResultCollector<?, ?> resultCollector)
     throws Exception
@@ -131,21 +137,9 @@ public class CircuitBreaker
 
             try{ Thread.sleep(4000); } catch(Exception e){}
 
-           // CircuitBreaker.context.refresh();
+            String[] sourceArgs = {"--spring.data.gemfire.locators="+this.primaryLocators};
 
-            String[] sourceArgs = {};
-
-            //CacheFarm.getCache().put("locator","MacBook-Pro-5.local[10334]");
-
-            try
-            {
-                CircuitBreaker.context = SpringApplication.run(DemoApp.class,sourceArgs );
-            }
-            catch(Exception e){
-
-                e.printStackTrace();
-                CircuitBreaker.context= SpringApplication.run(DemoApp.class,sourceArgs );
-            }
+            CircuitBreaker.context = SpringApplication.run(DemoApp.class,sourceArgs );
 
         };
 
@@ -158,32 +152,34 @@ public class CircuitBreaker
     {
         System.out.println("CHECKING IF primaur is UP");
 
+        Thread.sleep(1000);
+
         if(this.isPrimaryUp()){
             System.out.println("Primary is UP, so NOT SWITHING");
             return;
         }
 
         this.openToSecondary();
-    }
+    }//-------------------------------------------
 
     public void openToSecondary()
     {
         System.out.println("Opening to secondary");
 
         Runnable openAndSwitch = () -> {
+
+
             CircuitBreaker.context.close();
+
+
+            CircuitBreaker.context = null;
+            System.gc();
 
             String[] sourceArgs = {"--spring.data.gemfire.locators="+this.secondaryLocators};
 
-            try
-            {
-                CircuitBreaker.context = SpringApplication.run(DemoApp.class,sourceArgs );
-            }
-            catch(Exception e)
-            {
-                e.printStackTrace();
-                CircuitBreaker.context= SpringApplication.run(DemoApp.class,sourceArgs );
-            }
+
+            CircuitBreaker.context = SpringApplication.run(DemoApp.class,sourceArgs );
+
         };
 
         this.executor.submit(openAndSwitch);
@@ -191,11 +187,14 @@ public class CircuitBreaker
        // startCloseCircuitRunner();
 
 
-    }
+    }//-------------------------------------------
 
+    /**
+     * Start a thread to closer the circuit and switch batch to primary
+     */
     public void startCloseCircuitRunner()
     {
         Runnable closerRunner = new CircuitCloserRunner(this,sleepPeriodMs);
         this.executor.submit(closerRunner);
-    }
+    }//-------------------------------------------
 }
