@@ -1,29 +1,25 @@
 package io.pivotal.service.dataTx.circuitBreakerDemoApp;
 
-import org.apache.geode.cache.Region;
-import org.apache.geode.cache.client.NoAvailableLocatorsException;
-import org.apache.geode.cache.client.NoAvailableServersException;
-import org.apache.geode.cache.client.Pool;
-import org.apache.geode.cache.client.PoolManager;
+import org.apache.geode.cache.client.*;
 import org.apache.geode.cache.execute.*;
 import org.apache.geode.distributed.PoolCancelledException;
-import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.SpringApplication;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.ConfigurableApplicationContext;
 
 import java.net.ConnectException;
-import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+/**
+ * @author Gregory Green
+ */
 public class CircuitBreaker
 {
 
     private final String primaryPoolName;
     private final String secondaryPoolName;
+    private final String primaryLocators;
     private final String secondaryLocators;
     private final long sleepPeriodMs;
     private static final String FUNCTION_NAME ="CircuitBreakerStatusFunc";
@@ -33,9 +29,10 @@ public class CircuitBreaker
     private static ConfigurableApplicationContext context=null;
 
 
-    public CircuitBreaker(String primaryPool, String backupPool, String secondaryLocators,
+    public CircuitBreaker(String primaryPool, String backupPool, String primaryLocators, String secondaryLocators,
                           long sleepPeriodMs)
     {
+        this.primaryLocators = primaryLocators;
         this.secondaryLocators = secondaryLocators;
         this.primaryPoolName = primaryPool;
         this.secondaryPoolName = backupPool;
@@ -46,9 +43,10 @@ public class CircuitBreaker
     public boolean isPrimaryUp()
     throws Exception
     {
+
         return doCheck(PoolManager.find(this.primaryPoolName));
 
-    }
+    }//-------------------------------------------
 
     /**
      * Determine if the secondary cluster is up and running
@@ -58,7 +56,7 @@ public class CircuitBreaker
     throws Exception
     {
           return doCheck(PoolManager.find(this.secondaryPoolName));
-    }
+    }//-------------------------------------------
 
     private boolean doCheck(Pool secondaryPool)
     throws Exception
@@ -72,13 +70,13 @@ public class CircuitBreaker
             return checkResultsOK(rc);
 
         }
-      catch(ConnectException | NoAvailableLocatorsException | NoAvailableServersException | PoolCancelledException e){
+      catch(ServerConnectivityException | ConnectException | PoolCancelledException e){
             e.printStackTrace();
             return false;
         }
 
 
-    }
+    }//-------------------------------------------
 
     private boolean checkResultsOK(ResultCollector<?, ?> resultCollector)
     throws Exception
@@ -129,9 +127,11 @@ public class CircuitBreaker
     {
         Runnable r = () -> {
             CircuitBreaker.context.close();
-            String[] sourceArgs = {};
+
+            String[] sourceArgs = {"--spring.data.gemfire.locators="+this.primaryLocators};
 
             CircuitBreaker.context = SpringApplication.run(DemoApp.class,sourceArgs );
+
         };
 
         executor.submit(r);
@@ -149,18 +149,26 @@ public class CircuitBreaker
         }
 
         this.openToSecondary();
-    }
+    }//-------------------------------------------
 
     public void openToSecondary()
     {
         System.out.println("Opening to secondary");
 
         Runnable openAndSwitch = () -> {
+
+
             CircuitBreaker.context.close();
+
+
+            CircuitBreaker.context = null;
+            System.gc();
 
             String[] sourceArgs = {"--spring.data.gemfire.locators="+this.secondaryLocators};
 
+
             CircuitBreaker.context = SpringApplication.run(DemoApp.class,sourceArgs );
+
         };
 
         this.executor.submit(openAndSwitch);
@@ -168,11 +176,14 @@ public class CircuitBreaker
        // startCloseCircuitRunner();
 
 
-    }
+    }//-------------------------------------------
 
+    /**
+     * Start a thread to closer the circuit and switch batch to primary
+     */
     public void startCloseCircuitRunner()
     {
         Runnable closerRunner = new CircuitCloserRunner(this,sleepPeriodMs);
         this.executor.submit(closerRunner);
-    }
+    }//-------------------------------------------
 }

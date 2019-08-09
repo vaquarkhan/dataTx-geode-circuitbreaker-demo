@@ -20,6 +20,8 @@ public class CircuitCloserRunner implements Runnable
     @Override
     public void run()
     {
+        try{ Thread.sleep(5000); } catch(Exception e){}
+
         try
         {
             while(true)
