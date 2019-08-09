@@ -1,18 +1,12 @@
 package io.pivotal.service.dataTx.circuitBreakerDemoApp;
 
-import nyla.solutions.core.patterns.cache.CacheFarm;
-import org.apache.geode.cache.Region;
 import org.apache.geode.cache.client.*;
 import org.apache.geode.cache.execute.*;
 import org.apache.geode.distributed.PoolCancelledException;
-import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.SpringApplication;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.ConfigurableApplicationContext;
 
 import java.net.ConnectException;
-import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -133,9 +127,6 @@ public class CircuitBreaker
     {
         Runnable r = () -> {
             CircuitBreaker.context.close();
-            System.gc();
-
-            try{ Thread.sleep(4000); } catch(Exception e){}
 
             String[] sourceArgs = {"--spring.data.gemfire.locators="+this.primaryLocators};
 
@@ -151,8 +142,6 @@ public class CircuitBreaker
     throws Exception
     {
         System.out.println("CHECKING IF primaur is UP");
-
-        Thread.sleep(1000);
 
         if(this.isPrimaryUp()){
             System.out.println("Primary is UP, so NOT SWITHING");

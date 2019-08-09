@@ -23,7 +23,7 @@ import static org.junit.Assert.*;
 */
 @RunWith(SpringRunner.class)
 @SpringBootTest
-//@IfProfileValue(name = "integration")
+@IfProfileValue(name = "integration")
 public class CircuitBreakerTest {
 
     @Value("${primaryLocators}")
